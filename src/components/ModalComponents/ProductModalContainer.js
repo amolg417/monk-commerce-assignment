@@ -7,10 +7,10 @@ const ProductModalContainer = () => {
     (state) => state.newProducts.isAddingProducts
   );
   if (!isModalOpened) {
-    return null;
+    return <></>;
   }
   return (
-    <div className="w-full h-full flex items-center justify-center z-50 bg-[#0000004d] absolute top-0 left-0">
+    <div className="w-full min-h-screen h-full p-[1vw] flex items-center justify-center z-50 bg-[#0000004d] absolute top-0 left-0">
       <Modal />
     </div>
   );

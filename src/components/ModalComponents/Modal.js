@@ -8,58 +8,51 @@ import {
   fetchProductList,
   hangleModalVisibility,
   resetProductsToBeAddedInCart,
+  selectSelectedProducts,
 } from "../../slices/NewProductsSlice";
 import { useSelector } from "react-redux";
 import { addOrReplaceItem } from "../../slices/ProductsSlice";
 import Loader from "../Loader";
 import Actions from "./Actions";
 import { message } from "antd";
+import { AutoSizer } from "react-virtualized";
+import NewProductList from "./NewProductList";
 const Modal = () => {
   const [messageApi, contextHolder] = message.useMessage();
-  const [productsToAdded, setproductsToAdded] = useState(new Set([]));
   const [currentPage, setCurrentPage] = useState(1);
   const [isFetching, setIsFetching] = useState(false);
   const [isInitialFetching, setIsInitialFetching] = useState(true);
   const [searchQuery, setSerachQuery] = useState("");
 
   const dispatch = useDispatch();
+  const storeState = useSelector((state) => state.newProducts);
   const newProducts = useSelector((state) => state.newProducts.productList);
-  const productsToBeAddedInCart = useSelector(
-    (state) => state.newProducts.productsToBeAddedInCart
+  const selectedProducts = useSelector(
+    (state) => state.newProducts.selectedProducts
   );
   const productToBeReplacedIndex = useSelector(
     (state) => state.newProducts.productToBeReplacedIndex
   );
   const { loading, error } = useSelector((state) => state.newProducts);
 
-  const handleAddMainProductCheckbox = useCallback(
-    (product_id, isVariantsChecked) => {
-      console.log("isVariantsChecked",isVariantsChecked)
-      setproductsToAdded((prev) => {
-        const newCheckedProducts = new Set(prev);
-        console.log(prev,newCheckedProducts)
-        if (newCheckedProducts.has(product_id) && !isVariantsChecked) {
-          console.log("removed")
-          newCheckedProducts.delete(product_id);
-        } else {
-          newCheckedProducts.add(product_id);
-        }
-        return newCheckedProducts;
-      });
-    },
-    []
-  );
-
   const addProducts = useCallback(() => {
-    dispatch(
-      addOrReplaceItem({
-        productIndex: productToBeReplacedIndex,
-        UpdatedProducts: productsToBeAddedInCart,
-      })
-    );
-    dispatch(resetProductsToBeAddedInCart());
-    handleCloseButton();
-  }, [productToBeReplacedIndex, productsToBeAddedInCart]);
+    const selectedProducts = selectSelectedProducts(storeState);
+    if (selectedProducts.length) {
+      dispatch(
+        addOrReplaceItem({
+          productIndex: productToBeReplacedIndex,
+          UpdatedProducts: selectedProducts,
+        })
+      );
+      dispatch(resetProductsToBeAddedInCart());
+      handleCloseButton();
+    } else {
+      messageApi.open({
+        type: "error",
+        content: "please select atleast one product",
+      });
+    }
+  }, [productToBeReplacedIndex, storeState]);
 
   const handleCloseButton = useCallback(() => {
     dispatch(hangleModalVisibility(false));
@@ -67,131 +60,118 @@ const Modal = () => {
 
   const handleScroll = useCallback(
     ({ scrollTop, scrollHeight, clientHeight }) => {
-      const threshold = scrollHeight - clientHeight - 50;
-      if (!isFetching && scrollTop >= threshold) {
-        setIsFetching(true);
-        setCurrentPage((prev) => prev + 1);
-      }
+        const threshold = scrollHeight - clientHeight - 50;
+        if (!isFetching && scrollTop >= threshold && !isInitialFetching) {
+          console.log("handleScroll");
+          setIsFetching(true);
+          setCurrentPage((prev) => prev + 1);
+        }
     },
-    [isFetching]
+    [isFetching,isInitialFetching]
   );
 
   useEffect(() => {
-    if (isFetching && !searchQuery) {
-      dispatch(fetchProductList({ page: currentPage })).finally(() => {
-        setIsFetching(false);
-      });
-    }
-  }, [isFetching, currentPage, searchQuery]);
-
-  useEffect(() => {
-    if (!searchQuery) {
-      dispatch(fetchProductList({ search: "", page: 1, limit: 10 })).finally(
+    // Fetch next page when scrolling down and search query is empty
+    console.log(
+      "!searchQuery && isFetching",
+      { searchQuery },
+      isFetching,
+      isInitialFetching
+    );
+    if (!searchQuery && isFetching) {
+      dispatch(fetchProductList({ page: currentPage, limit: 10 })).finally(
         () => {
-          setIsInitialFetching(false);
+          setIsFetching(false);
         }
       );
     }
-    return ()=>{
-      dispatch(resetProductsToBeAddedInCart());
+
+    // Fetch next page when scrolling down with search query
+    if (searchQuery && isFetching) {
+      console.log("searchQuery && isFetching");
+      dispatch(
+        fetchProductList({ search: searchQuery, page: currentPage, limit: 10 })
+      ).finally(() => {
+        setIsFetching(false);
+      });
     }
-  }, [searchQuery]);
+  }, [currentPage, isFetching, searchQuery]);
+
+  useEffect(() => {
+    // Fetch initial products
+    if (isInitialFetching) {
+      console.log("initial useefect");
+      dispatch(fetchProductList({ page: 1, limit: 10 })).finally(() => {
+        setIsInitialFetching(false);
+      });
+    }
+  }, [isInitialFetching]);
 
   useEffect(() => {
     let timer;
     if (searchQuery) {
       timer = setTimeout(() => {
-        dispatch(fetchProductList({ search: searchQuery, page: 1, limit: 10 }));
+        console.log("searchQuery useefect");
+        dispatch(
+          fetchProductList({ search: searchQuery, page: 1, limit: 10 })
+        ).finally(() => {
+          setCurrentPage(1);
+          setIsFetching(false);
+        });
       }, 1000);
     } else {
       setCurrentPage(1);
+      setIsInitialFetching(true);
     }
     return () => {
       clearTimeout(timer);
     };
   }, [searchQuery]);
 
-  const cache = new CellMeasurerCache({
-    defaultHeight: 200,
-    fixedWidth: true,
-  });
-
-  const renderRow = ({ index, key, parent, style }) => {
-    const item = newProducts[index];
-    return (
-      <CellMeasurer
-        key={key}
-        cache={cache}
-        parent={parent}
-        columnIndex={0}
-        rowIndex={index}
-      >
-        {() => (
-          <div style={style}>
-            <NewProduct
-              key={item.id}
-              item={item}
-              index={index}
-              handleAddMainProductCheckbox={handleAddMainProductCheckbox}
-              productsToAdded={productsToAdded}
-            />
-          </div>
-        )}
-      </CellMeasurer>
-    );
-  };
-
   if (error) {
     messageApi.open({
       type: "error",
-      content: "This is an error message",
+      content: "Something went wrong, please try again",
     });
-    return;
   }
 
   return (
-    <div className="w-[65%] aspect-square bg-[#ffff]">
-      <div className="w-full py-[0.5rem] px-[1.5rem] flex items-center justify-between border-b">
-        <h5 className="text-[1.2rem]">Select Products</h5>
+    <div className="w-[40vw] aspect-square bg-[#ffff]">
+      <div className="w-full py-[0.5vw] px-[1.5vw] flex items-center justify-between border-b">
+        <h5 className="fs-18">Select Products</h5>
         <img
           src={closeIcon}
           alt="closeIcon"
-          className="w-[1rem] cursor-pointer"
+          className="w-[1vw] cursor-pointer"
           onClick={handleCloseButton}
         />
       </div>
-      <div className="w-full py-[0.5rem] flex items-center justify-center border-b relative">
+      <div className="w-full py-[0.5vw] flex items-center justify-center border-b relative">
         <input
           type="text"
           value={searchQuery}
           onChange={(e) => setSerachQuery(e.target.value)}
           placeholder="Search product"
-          className="w-[91%] text-[0.9rem] border outline-none px-[2.8rem] py-[0.2rem]"
+          className="w-[91%] fs-14 border outline-none px-[2.8vw] py-[0.2vw]"
         />
         <img
           src={searchIcon}
           alt="searchIcon"
-          className="w-[1rem] absolute left-[3rem]"
+          className="w-[1vw] absolute left-[3.2vw]"
         />
       </div>
       <div className="w-full h-[77%] border-b overflow-hidden">
-        {(loading && searchQuery) || (loading && isInitialFetching) ? (
+        {loading && isInitialFetching ? (
           <Loader />
         ) : (
-          <List
-            className="custom-scrollbar"
-            width={590}
-            height={500}
-            rowHeight={cache.rowHeight}
-            rowRenderer={renderRow}
-            rowCount={newProducts?.length}
-            overscanRowCount={10}
-            onScroll={handleScroll}
+          <NewProductList
+            newProducts={newProducts}
+            handleScroll={handleScroll}
           />
         )}
       </div>
       <Actions
-        productsToBeAddedInCart={productsToBeAddedInCart}
+        selectedProducts={selectedProducts}
         handleCloseButton={handleCloseButton}
         addProducts={addProducts}
       />

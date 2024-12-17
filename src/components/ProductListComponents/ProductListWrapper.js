@@ -1,5 +1,5 @@
 import React, { useCallback } from "react";
-import { DragDropContext } from "react-beautiful-dnd";
+import { DragDropContext } from "@hello-pangea/dnd";
 import ProductList from "./ProductList";
 import { useSelector } from "react-redux";
 import { useDispatch } from "react-redux";
@@ -30,7 +30,7 @@ const ProductListWrapper = () => {
 
       const updatedProducts = products.map((product) => ({
         ...product,
-        variants: [...product?.variants], 
+        variants: [...product?.variants],
       }));
 
       if (type === "product") {
@@ -57,7 +57,7 @@ const ProductListWrapper = () => {
 
   return (
     <DragDropContext onDragEnd={handleOnDragEnd}>
-      <div className="w-[30rem]">
+      <div className="w-[35vw]">
         <ProductList
           products={products}
           droppableId="productList"
@@ -65,7 +65,7 @@ const ProductListWrapper = () => {
         />
         <button
           onClick={handleAddEmptyProduct}
-          className="float-right py-[0.5rem] px-[2rem] border-[0.1rem] border-[#008060] text-[#008060] font-[500] rounded-sm mt-[2rem] duration-100 hover:bg-[#008060] hover:text-[#fff]"
+          className="fs-14 float-right py-[0.5vw] px-[2vw] border-[0.1vw] border-[#008060] text-[#008060] font-[500] rounded-sm mt-[2vw] duration-100 hover:bg-[#008060] hover:text-[#fff]"
         >
           Add Product
         </button>

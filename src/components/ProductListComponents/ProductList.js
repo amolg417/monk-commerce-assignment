@@ -1,15 +1,15 @@
 import React from "react";
 import Product from "./Product";
-import { Droppable } from "react-beautiful-dnd";
+import { Droppable } from "@hello-pangea/dnd";
 
-const ProductList = ({ products, droppableId, type, parent }) => {
+const ProductList = React.memo(({ products, droppableId, type, parent }) => {
   return (
     <Droppable droppableId={`${droppableId}`} direction="vertical" type={type}>
       {(provided) => (
         <div
           className={`${
             droppableId === "productList" ? "w-full" : "w-full"
-          } h-full flex-col flex items-end`}
+          } h-full flex-col flex items-end overflow-y-auto overflow-x-hidden`}
           ref={provided.innerRef}
           {...provided.droppableProps}
         >
@@ -28,6 +28,6 @@ const ProductList = ({ products, droppableId, type, parent }) => {
       )}
     </Droppable>
   );
-};
+});
 
 export default ProductList;
